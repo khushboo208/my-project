@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Result</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" data-ajax-style>
+    <script src="{{ url_for('static', filename='js/app_nav.js') }}" defer></script>
+</head>
+<body class="wardrobe-body">
+    <div class="wardrobe-container">
+        <div class="top-bar">
+            <h1 class="wardrobe-title">Prediction Result</h1>
+            <div class="top-buttons">
+                <a href="/upload" class="primary-btn">Upload Another</a>
+            </div>
+        </div>
+
+        <div class="favorite-card" style="max-width:420px;">
+            <p><strong>Prediction:</strong> {{ result }}</p>
+            <div style="margin-top:18px;">
+                <img src="{{ url_for('static', filename='uploads/' + image) }}" width="300" style="width:100%; border-radius:20px;">
+            </div>
+        </div>
+    </div>
+</body>
+</html>

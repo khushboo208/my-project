@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Outfit</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260320p') }}" data-ajax-style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/generate.css', v='20260320p') }}" data-ajax-style>
+    <script src="{{ url_for('static', filename='js/app_nav.js') }}" defer></script>
+</head>
+<body class="generate-body">
+
+<div class="generate-container">
+    <div class="generate-header">
+        <div class="generate-header-copy">
+            <p class="generate-kicker">Generated Look</p>
+            <h1>Generated Outfit</h1>
+            <p class="generate-lede">A styling board for the current look, tuned against mood, occasion, and live conditions when location is enabled.</p>
+        </div>
+        <a href="/dashboard" class="btn secondary-btn">Back to Dashboard</a>
+    </div>
+
+    <div class="generate-stage">
+        <aside class="style-rail">
+            <div class="hero-panel">
+                <p class="eyebrow">Control Rail</p>
+                <p class="hero-copy">
+                    The rail carries the operational data. The stage holds the pieces. Treat the right side like a look board pulled from a Tokyo styling console.
+                </p>
+            </div>
+
+            <div class="generate-meta">
+                {% if weather %}
+                <span class="meta-chip">Weather: {{ weather }}</span>
+                {% endif %}
+                {% if temperature is not none %}
+                <span class="meta-chip">Temperature: {{ temperature }} C</span>
+                {% endif %}
+                {% if preferences and preferences.occasion %}
+                <span class="meta-chip">Occasion: {{ preferences.occasion }}</span>
+                {% endif %}
+                {% if preferences and preferences.mood %}
+                <span class="meta-chip">Mood: {{ preferences.mood }}</span>
+                {% endif %}
+            </div>
+
+            {% if outfit %}
+            <button id="saveGeneratedBtn" class="save-btn">Save Outfit</button>
+            {% endif %}
+
+            <div class="button-section">
+                <a href="/generate-outfit" class="btn primary-btn">Generate Again</a>
+                <a href="/custom-outfit" class="btn secondary-btn">Custom Outfit</a>
+            </div>
+        </aside>
+
+        <section class="outfit-grid">
+        {% if outfit %}
+        <div class="outfit-section" id="generatedOutfit">
+            {% for key, item in outfit.items() %}
+                {% if item %}
+                <div class="outfit-card">
+                    <h3>{{ key.capitalize() }}</h3>
+                    <img src="{{ url_for('static', filename=item['image_path']) }}">
+                    <p>{{ item['article_type'] }} - {{ item['color'] }}</p>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <strong>No outfit generated yet.</strong>
+            Add more wardrobe items or sharpen your archive, then run the styling engine again.
+        </div>
+        {% endif %}
+        </section>
+    </div>
+
+    <div id="saveModal" class="save-modal">
+        <div class="save-modal-content">
+            <h3>Save Outfit</h3>
+
+            <label>Select Date (optional)</label>
+            <input type="date" id="saveDate">
+
+            <label>Note (optional)</label>
+            <textarea id="saveNote"></textarea>
+
+            <button id="confirmSave">Save</button>
+            <button id="cancelSave">Cancel</button>
+        </div>
+    </div>
+</div>
+
+{% if outfit %}
+<script type="application/json" id="outfitData">
+{{ outfit | tojson }}
+</script>
+{% endif %}
+
+<script>
+let currentOutfit = null;
+const liveLocationEnabled = {{ live_location_enabled|tojson }};
+const locationSyncKey = "generate_location_synced_at";
+
+const outfitScript = document.getElementById("outfitData");
+if (outfitScript) {
+    currentOutfit = JSON.parse(outfitScript.textContent);
+}
+
+const saveBtn = document.getElementById("saveGeneratedBtn");
+const modal = document.getElementById("saveModal");
+const cancelBtn = document.getElementById("cancelSave");
+const confirmBtn = document.getElementById("confirmSave");
+
+if (saveBtn) {
+    saveBtn.addEventListener("click", function() {
+        modal.style.display = "flex";
+    });
+}
+
+if (cancelBtn) {
+    cancelBtn.addEventListener("click", function() {
+        modal.style.display = "none";
+    });
+}
+
+if (confirmBtn) {
+    confirmBtn.addEventListener("click", async function() {
+        if (!currentOutfit) {
+            alert("No outfit to save.");
+            return;
+        }
+
+        const date = document.getElementById("saveDate").value;
+        const note = document.getElementById("saveNote").value;
+
+        try {
+            const response = await fetch("/save-outfit", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    outfit: currentOutfit,
+                    scheduled_date: date,
+                    note: note
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                alert("Saved successfully.");
+                modal.style.display = "none";
+                document.getElementById("saveDate").value = "";
+                document.getElementById("saveNote").value = "";
+            } else {
+                alert("Save failed.");
+            }
+        } catch (error) {
+            console.error("Error:", error);
+            alert("Something went wrong.");
+        }
+    });
+}
+
+async function syncLocationForGenerate() {
+    if (!liveLocationEnabled) return;
+
+    const lastSync = Number(sessionStorage.getItem(locationSyncKey) || "0");
+    if (Date.now() - lastSync < 300000) return;
+
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(async function(position) {
+        try {
+            const response = await fetch("/update-location", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                })
+            });
+
+            if (response.ok) {
+                sessionStorage.setItem(locationSyncKey, String(Date.now()));
+                if (window.ajaxNavigate) {
+                    window.ajaxNavigate(window.location.pathname);
+                } else {
+                    window.location.reload();
+                }
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    });
+}
+
+syncLocationForGenerate();
+</script>
+
+</body>
+</html>

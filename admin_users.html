@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Users</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260330a') }}" data-ajax-style>
+    <script src="{{ url_for('static', filename='js/app_nav.js') }}" defer></script>
+</head>
+<body class="wardrobe-body">
+<div class="tokyo-lines"></div>
+<div class="tokyo-sigil tokyo-sigil-left">ADMIN</div>
+<div class="tokyo-sigil tokyo-sigil-right">USERS</div>
+
+<main class="wardrobe-container admin-container">
+    <div class="top-bar">
+        <div>
+            <p class="section-kicker">Control Center</p>
+            <h1 class="wardrobe-title">User Management</h1>
+            <p class="wardrobe-lede">Manage accounts, roles, and account cleanup from one place.</p>
+        </div>
+        <div class="top-buttons">
+            <a href="{{ url_for('dashboard') }}" class="dashboard-btn">Back to Dashboard</a>
+        </div>
+    </div>
+
+    <form method="GET" action="{{ url_for('admin_users') }}" class="admin-search">
+        <input type="text" name="q" placeholder="Search by name, email, provider" value="{{ query }}">
+        <button type="submit" class="primary-btn">Search</button>
+    </form>
+
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Provider</th>
+                    <th>Role</th>
+                    <th>Wardrobe</th>
+                    <th>Saved Looks</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.id }}</td>
+                    <td>{{ user.name or "N/A" }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.provider or "local" }}</td>
+                    <td>
+                        {% if user.is_admin %}
+                        <span class="role-chip admin">Admin</span>
+                        {% else %}
+                        <span class="role-chip">User</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ wardrobe_counts.get(user.id, 0) }}</td>
+                    <td>{{ outfit_counts.get(user.id, 0) }}</td>
+                    <td class="admin-actions">
+                        {% if user.id != current_user.id %}
+                        <form method="POST" action="{{ url_for('admin_toggle_user_role', user_id=user.id, q=query) }}">
+                            <button type="submit" class="secondary-btn">
+                                {% if user.is_admin %}Demote{% else %}Make Admin{% endif %}
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('admin_delete_user', user_id=user.id, q=query) }}" onsubmit="return confirm('Delete this user and all their wardrobe data?');">
+                            <button type="submit" class="profile-logout">Delete</button>
+                        </form>
+                        {% else %}
+                        <span class="role-chip self">Current User</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="empty-cell">No users found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</main>
+</body>
+</html>

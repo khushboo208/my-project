@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wardrobe AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260330h') }}" data-ajax-style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom_chat_v3.css', v='20260330o') }}" data-ajax-style>
+    <script src="{{ url_for('static', filename='js/app_nav.js') }}" defer></script>
+</head>
+<body class="oa-page">
+<main class="oa-shell">
+    <section class="oa-chat">
+        <header class="oa-chat-head">
+            <div>
+                <p class="oa-eyebrow">OpenAI Wardrobe</p>
+                <h1>Style Assistant</h1>
+            </div>
+            <div class="oa-head-actions">
+                <button class="oa-btn ghost" onclick="goToGenerateOutfit()">Generate</button>
+                <button class="oa-btn ghost" onclick="goToDashboard()">Dashboard</button>
+            </div>
+        </header>
+
+        <div class="oa-messages" id="chatBox">
+            {% for msg in chat_history %}
+            <div class="oa-row {{ msg.sender }}">
+                <div class="oa-bubble">{{ msg.message }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="oa-typing" id="typingIndicator" style="display:none;">
+            <span></span><span></span><span></span>
+            <p>Stylist is thinking</p>
+        </div>
+
+        <div class="oa-suggestions">
+            <button type="button" onclick="fillInput('male office smart outfit in blue tones')">Office Smart</button>
+            <button type="button" onclick="fillInput('female date night classy black look')">Date Night</button>
+            <button type="button" onclick="fillInput('rainy day comfy layered fit')">Rainy Casual</button>
+            <button type="button" onclick="fillInput('give me an alternate option with same vibe')">Alternate</button>
+        </div>
+
+        <form id="chatForm" class="oa-input-wrap">
+            <input type="text" name="message" placeholder="Ask for an outfit by mood, weather, occasion, color, or gender..." required>
+            <button type="submit" class="oa-btn primary">Send</button>
+        </form>
+    </section>
+
+    <aside class="oa-board">
+        <div class="oa-board-top">
+            <div class="oa-board-head">
+                <h2>Outfit Result</h2>
+                <button id="saveOutfitBtn" class="oa-btn primary" style="display:none;">Save Outfit</button>
+            </div>
+        </div>
+
+        <div class="oa-grid" id="outfitGrid">
+            <div class="oa-empty">Your generated outfit will appear here.</div>
+        </div>
+
+        <details id="stylistMetaWrap" class="oa-meta-wrap" style="display:none;">
+            <summary>Why this outfit works</summary>
+            <div id="stylistMeta" class="oa-meta"></div>
+        </details>
+    </aside>
+</main>
+
+<div id="saveModal" class="save-modal">
+    <div class="save-modal-content">
+        <h3 class="modal-title">Save Outfit</h3>
+        <div class="modal-field">
+            <label>Select a Date (optional)</label>
+            <input type="date" id="saveDate">
+        </div>
+        <div class="modal-field">
+            <label>Why are you saving this? (optional)</label>
+            <textarea id="saveNote" placeholder="Birthday, meeting, vacation..."></textarea>
+        </div>
+        <div class="modal-buttons">
+            <button id="confirmSave" class="save-confirm">Save</button>
+            <button id="cancelSave" class="save-cancel">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentOutfit = null;
+const liveLocationEnabled = {{ live_location_enabled|tojson }};
+
+const form = document.getElementById("chatForm");
+const chatBox = document.getElementById("chatBox");
+const typingIndicator = document.getElementById("typingIndicator");
+const inputField = form.querySelector("input");
+const saveBtn = document.getElementById("saveOutfitBtn");
+const modal = document.getElementById("saveModal");
+const confirmSave = document.getElementById("confirmSave");
+const cancelSave = document.getElementById("cancelSave");
+
+form.addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const message = inputField.value.trim();
+    if (!message) return;
+
+    addMessage("user", message);
+    inputField.value = "";
+    typingIndicator.style.display = "flex";
+    scrollToBottom();
+
+    try {
+        const response = await fetch("/custom-outfit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: message })
+        });
+        const data = await response.json();
+        typingIndicator.style.display = "none";
+
+        if (data.error) {
+            addMessage("bot", `Error: ${data.error}`);
+            return;
+        }
+
+        if (data.bot_reply) addMessage("bot", data.bot_reply);
+
+        if (data.outfit && Object.keys(data.outfit).length > 0) {
+            updateOutfitPanel(data.outfit);
+            updateStylistMeta(data.stylist_meta);
+        } else {
+            clearOutfitPanel();
+            updateStylistMeta(null);
+        }
+
+        scrollToBottom();
+    } catch (error) {
+        typingIndicator.style.display = "none";
+        addMessage("bot", "Network issue. Please try again.");
+        scrollToBottom();
+    }
+});
+
+function addMessage(sender, text) {
+    const row = document.createElement("div");
+    row.className = "oa-row " + sender;
+    const bubble = document.createElement("div");
+    bubble.className = "oa-bubble";
+    bubble.innerText = text;
+    row.appendChild(bubble);
+    chatBox.appendChild(row);
+}
+
+function updateOutfitPanel(outfit) {
+    currentOutfit = outfit;
+    const grid = document.getElementById("outfitGrid");
+    grid.innerHTML = "";
+
+    const entries = Object.entries(outfit || {}).filter(([_, item]) => item && typeof item === "object" && item.image_path);
+    if (!entries.length) {
+        clearOutfitPanel();
+        return;
+    }
+
+    const slotPriority = {
+        top_wear: 1, top: 1, upper: 1,
+        bottom_wear: 2, bottom: 2, lower: 2, dress: 2,
+        footwear: 3, shoes: 3,
+        outerwear: 4, jacket: 4, layer: 4,
+        accessory: 5, accessories: 5
+    };
+
+    const sorted = entries.sort(([a], [b]) => (slotPriority[a] || 99) - (slotPriority[b] || 99));
+    grid.dataset.count = String(sorted.length);
+
+    sorted.forEach(([key, item]) => {
+        const card = document.createElement("article");
+        card.className = "oa-card";
+
+        const title = document.createElement("h3");
+        const slotName = key.replace(/_/g, " ");
+        title.textContent = slotName.charAt(0).toUpperCase() + slotName.slice(1);
+
+        const img = document.createElement("img");
+        img.src = `/static/${item.image_path}`;
+        img.alt = item.article_type || "wardrobe item";
+        img.loading = "lazy";
+        img.onerror = function() {
+            this.onerror = null;
+            this.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 520 620'><rect width='520' height='620' fill='%23161a24'/><text x='50%25' y='50%25' fill='%23d2d9ec' font-family='Segoe UI, Arial' font-size='26' text-anchor='middle'>Image unavailable</text></svg>";
+        };
+
+        const desc = document.createElement("p");
+        const articleType = (item.article_type || "item").replace(/_/g, " ");
+        const color = (item.color || "neutral").replace(/_/g, " ");
+        desc.textContent = `${articleType} in ${color}`;
+
+        card.appendChild(title);
+        card.appendChild(img);
+        card.appendChild(desc);
+        grid.appendChild(card);
+    });
+
+    saveBtn.style.display = "inline-flex";
+}
+
+function clearOutfitPanel() {
+    currentOutfit = null;
+    const grid = document.getElementById("outfitGrid");
+    grid.dataset.count = "0";
+    grid.innerHTML = `<div class="oa-empty">No outfit generated for this message.</div>`;
+    saveBtn.style.display = "none";
+}
+
+function updateStylistMeta(meta) {
+    const wrap = document.getElementById("stylistMetaWrap");
+    const box = document.getElementById("stylistMeta");
+
+    if (!meta) {
+        wrap.style.display = "none";
+        wrap.open = false;
+        box.innerHTML = "";
+        return;
+    }
+
+    const reasons = (meta.reasons || []).map(reason => `<li>${reason}</li>`).join("");
+    const tips = (meta.tips || []).map(tip => `<li>${tip}</li>`).join("");
+
+    box.innerHTML = `
+        <div class="oa-tags">
+            <span>${meta.weather || "normal"}</span>
+            <span>${meta.occasion || "any"}</span>
+            <span>${meta.mood || "balanced"}</span>
+            <span>${meta.color || "open palette"}</span>
+            <span>${meta.gender || "unisex"}</span>
+        </div>
+        <h4>Reasoning</h4>
+        <ul>${reasons}</ul>
+        <h4>Styling tips</h4>
+        <ul>${tips}</ul>
+    `;
+
+    wrap.style.display = "block";
+    wrap.open = false;
+}
+
+function fillInput(text) {
+    inputField.value = text;
+    inputField.focus();
+}
+
+function scrollToBottom() {
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+saveBtn.addEventListener("click", () => {
+    modal.style.display = "flex";
+});
+
+cancelSave.addEventListener("click", () => {
+    modal.style.display = "none";
+});
+
+confirmSave.addEventListener("click", async function() {
+    const date = document.getElementById("saveDate").value;
+    const note = document.getElementById("saveNote").value;
+    const response = await fetch("/save-outfit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            outfit: currentOutfit,
+            scheduled_date: date,
+            note: note
+        })
+    });
+    const data = await response.json();
+    if (data.success) {
+        modal.style.display = "none";
+        document.getElementById("saveDate").value = "";
+        document.getElementById("saveNote").value = "";
+    }
+});
+
+function goToDashboard() {
+    if (window.ajaxNavigate) window.ajaxNavigate("/dashboard");
+    else window.location.href = "/dashboard";
+}
+
+function goToGenerateOutfit() {
+    if (window.ajaxNavigate) window.ajaxNavigate("/generate-outfit");
+    else window.location.href = "/generate-outfit";
+}
+
+function sendLocation() {
+    if (!liveLocationEnabled || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(function(position) {
+        fetch("/update-location", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+            })
+        });
+    });
+}
+
+sendLocation();
+scrollToBottom();
+</script>
+</body>
+</html>

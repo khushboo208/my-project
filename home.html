@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Wardrobe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260320p') }}" data-ajax-style>
+    <script src="{{ url_for('static', filename='js/app_nav.js') }}" defer></script>
+</head>
+<body class="home-body">
+
+<div class="home-bg-glow"></div>
+<div class="home-grid"></div>
+<div class="tokyo-lines"></div>
+<div class="tokyo-sigil tokyo-sigil-left">TOKYO</div>
+<div class="tokyo-sigil tokyo-sigil-right">MODE</div>
+
+<div class="home-container">
+    <p class="section-kicker">Next Gen Styling</p>
+    <h1 class="home-title"><span>AI</span> WARDROBE</h1>
+    <p class="home-sub">
+        Build a wardrobe system shaped by weather, silhouette, texture, and intent.
+    </p>
+
+    <div class="home-manifesto">
+        <p>Archive every piece.</p>
+        <p>Refine every silhouette.</p>
+        <p>Generate outfits with real direction.</p>
+    </div>
+
+    <div class="home-buttons">
+        <a href="{{ url_for('auth.login') }}" class="home-btn primary">Enter</a>
+        <a href="{{ url_for('auth.signup') }}" class="home-btn secondary">Create Account</a>
+    </div>
+
+    <div class="home-data-strip">
+        <span>Vision Analysis</span>
+        <span>Live Weather Styling</span>
+        <span>Weekly Rotation Engine</span>
+    </div>
+</div>
+
+</body>
+</html>

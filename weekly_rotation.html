@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Rotation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260330d') }}" data-ajax-style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/weekly.css', v='20260330d') }}" data-ajax-style>
+    <script src="{{ url_for('static', filename='js/app_nav.js') }}" defer></script>
+</head>
+<body class="weekly-body">
+
+<div class="weekly-container">
+    <div class="weekly-header">
+        <div class="weekly-header-copy">
+            <p class="weekly-kicker">Weekly Planner</p>
+            <h1>Weekly Rotation</h1>
+            <p class="weekly-lede">A seven-day scheduling wall for staging looks around weather, temperature, and the rhythm of the week.</p>
+        </div>
+        <a href="/dashboard" class="back-btn">Back to Dashboard</a>
+    </div>
+
+    <div class="weekly-band">
+        This board should feel like a transit map for your wardrobe week: every day is a stop, every outfit is a route, and each refresh should sharpen the lineup instead of randomizing it.
+    </div>
+
+    {% if outfits %}
+    <div class="week-grid">
+        {% for outfit in outfits %}
+        <div class="day-card" draggable="true">
+            <h2>
+                Day {{ loop.index }}
+                <span class="weather-icon"></span>
+            </h2>
+
+            <div class="outfit-grid">
+                {% for key, item in outfit.items() %}
+                    {% if item %}
+                    <div class="item-card">
+                        <h4>{{ key.capitalize() }}</h4>
+                        <img src="{{ url_for('static', filename=item['image_path']) }}">
+                        <p>{{ item['article_type'] }} - {{ item['color'] }}</p>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <button class="regen-btn" data-day="{{ loop.index0 }}">Regenerate</button>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-week">
+        No weekly outfits are available yet. Add more wardrobe items, then build the board again.
+    </div>
+    {% endif %}
+</div>
+
+<script>
+const liveLocationEnabled = {{ live_location_enabled|tojson }};
+const weeklyLocationSyncKey = "weekly_location_synced_at";
+
+document.querySelectorAll(".regen-btn").forEach(button => {
+    button.addEventListener("click", function() {
+        const dayIndex = this.dataset.day;
+        regenerateDay(dayIndex);
+    });
+});
+
+async function regenerateDay(dayIndex) {
+    const response = await fetch("/regenerate-day", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ day_index: dayIndex })
+    });
+
+    const data = await response.json();
+
+    if (data.outfit) {
+        updateDayCard(dayIndex, data.outfit, data.weather);
+    }
+}
+
+function updateDayCard(index, outfit, weather) {
+    const card = document.querySelectorAll(".day-card")[index];
+    const grid = card.querySelector(".outfit-grid");
+    grid.innerHTML = "";
+
+    for (const key in outfit) {
+        const item = outfit[key];
+        grid.innerHTML += `
+            <div class="item-card">
+                <h4>${key.charAt(0).toUpperCase() + key.slice(1)}</h4>
+                <img src="/static/${item.image_path}">
+                <p>${item.article_type} - ${item.color}</p>
+            </div>
+        `;
+    }
+
+    const weatherIcon = card.querySelector(".weather-icon");
+    weatherIcon.innerHTML = getWeatherIcon(weather);
+}
+
+function getWeatherIcon(weather) {
+    if (!weather) return "";
+    if (weather.includes("winter")) return "Cold";
+    if (weather.includes("summer")) return "Hot";
+    if (weather.includes("rain")) return "Rain";
+    return "Now";
+}
+
+let draggedIndex = null;
+
+document.querySelectorAll(".day-card").forEach((card, index) => {
+    card.addEventListener("dragstart", () => {
+        draggedIndex = index;
+    });
+
+    card.addEventListener("dragover", (e) => {
+        e.preventDefault();
+    });
+
+    card.addEventListener("drop", () => {
+        const cards = document.querySelectorAll(".day-card");
+        const temp = cards[draggedIndex].innerHTML;
+        cards[draggedIndex].innerHTML = card.innerHTML;
+        card.innerHTML = temp;
+    });
+});
+
+function syncLocationForWeekly() {
+    if (!liveLocationEnabled) return;
+
+    const lastSync = Number(sessionStorage.getItem(weeklyLocationSyncKey) || "0");
+    if (Date.now() - lastSync < 300000) return;
+
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(async function(position) {
+        try {
+            const response = await fetch("/update-location", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                })
+            });
+
+            if (response.ok) {
+                sessionStorage.setItem(weeklyLocationSyncKey, String(Date.now()));
+                if (window.ajaxNavigate) {
+                    window.ajaxNavigate(window.location.pathname);
+                } else {
+                    window.location.reload();
+                }
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    });
+}
+
+syncLocationForWeekly();
+</script>
+
+</body>
+</html>

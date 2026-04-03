@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Wardrobe OS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260330a') }}" data-ajax-style>
+    <script src="{{ url_for('static', filename='js/app_nav.js') }}" defer></script>
+</head>
+<body class="boss-body">
+
+<video autoplay muted loop playsinline class="bg-video">
+    <source src="{{ url_for('static', filename='videos/test4.mp4') }}" type="video/mp4">
+</video>
+
+<div class="video-overlay"></div>
+
+<div class="dashboard-content">
+    <div class="intro" {% if not show_intro %}style="display:none;"{% endif %}>
+        <div class="intro-frame">
+            <div class="intro-door intro-door-left">
+                <div class="door-grid"></div>
+                <div class="door-copy">
+                    <span class="door-kicker">Entry Sequence</span>
+                    <span class="door-kanji">OPEN</span>
+                </div>
+            </div>
+            <div class="intro-centerline"></div>
+            <div class="intro-door intro-door-right">
+                <div class="door-grid"></div>
+                <div class="door-copy door-copy-right">
+                    <span class="door-kicker">System Online</span>
+                    <span class="door-kanji">LIVE</span>
+                </div>
+            </div>
+            <div class="intro-title-block">
+                <span class="intro-label">Dashboard Intro</span>
+                <h1 class="boot-text">Wardrobe OS</h1>
+                <p class="intro-subtitle">The doors open, then the dashboard appears.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="profilePanel" class="profile-panel">
+        <div class="profile-content">
+            <button class="close-btn" onclick="closeProfile()">X</button>
+            <h2 class="profile-heading">Profile</h2>
+
+            {% if current_user.name %}
+            <div class="profile-item">
+                <span class="label">Name</span>
+                <span class="value">{{ current_user.name }}</span>
+            </div>
+            {% endif %}
+
+            {% if current_user.email %}
+            <div class="profile-item">
+                <span class="label">Email</span>
+                <span class="value">{{ current_user.email }}</span>
+            </div>
+            {% endif %}
+
+            <div class="wardrobe-count">
+                <div class="count-number">{{ item_count }}</div>
+                <div class="count-label">Items in Wardrobe</div>
+            </div>
+
+            <div class="profile-setting">
+                <div class="setting-copy">
+                    <div class="setting-title">Live Location</div>
+                    <div class="setting-hint">Use your current temperature for generated outfits, custom styling, and weekly rotation.</div>
+                    <span class="toggle-status" id="liveLocationStatus">{{ "On" if live_location_enabled else "Off" }}</span>
+                </div>
+
+                <label class="toggle-switch">
+                    <input type="checkbox" id="liveLocationToggle" {% if live_location_enabled %}checked{% endif %}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <a href="{{ url_for('auth.logout') }}" class="profile-logout">Log Out</a>
+            {% if current_user.is_admin %}
+            <a href="{{ url_for('admin_users') }}" class="dashboard-btn">Admin Panel</a>
+            {% endif %}
+            {% if can_bootstrap_admin %}
+            <form method="POST" action="{{ url_for('admin_bootstrap') }}">
+                <button type="submit" class="primary-btn">Become Admin</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="boss-scene">
+        <div class="animated-bg"></div>
+        <div class="noise-layer"></div>
+        <div class="particles"></div>
+
+        <p class="section-kicker scene-kicker">Dashboard</p>
+        <h1 class="boss-title">Wardrobe OS</h1>
+        <p class="scene-copy">Move through the wardrobe like a modern styling system: collect pieces, review the archive, build looks, and prepare the week ahead.</p>
+
+        <div class="boss-grid">
+            <button type="button" class="boss-card" id="profileBtn" onclick="openProfilePanel()">
+                <span class="boss-index">01</span>
+                <span class="boss-label">My Profile</span>
+                <span class="boss-note">Identity, live location, and system state.</span>
+            </button>
+            <a href="{{ url_for('upload_file') }}" class="boss-card">
+                <span class="boss-index">02</span>
+                <span class="boss-label">Add Item</span>
+                <span class="boss-note">Scan a piece and turn it into usable wardrobe data.</span>
+            </a>
+            <a href="{{ url_for('wardrobe') }}" class="boss-card">
+                <span class="boss-index">03</span>
+                <span class="boss-label">My Wardrobe</span>
+                <span class="boss-note">Audit the archive and clean up the inventory.</span>
+            </a>
+            <a href="{{ url_for('generate_outfit') }}" class="boss-card">
+                <span class="boss-index">04</span>
+                <span class="boss-label">Generate Outfit</span>
+                <span class="boss-note">Run a fast automated styling pass.</span>
+            </a>
+            <a href="{{ url_for('weekly_rotation') }}" class="boss-card">
+                <span class="boss-index">05</span>
+                <span class="boss-label">Weekly Rotation</span>
+                <span class="boss-note">Stage the next seven days against live conditions.</span>
+            </a>
+            <a href="{{ url_for('favorites') }}" class="boss-card">
+                <span class="boss-index">06</span>
+                <span class="boss-label">Saved Looks</span>
+                <span class="boss-note">Pull archived combinations back into circulation.</span>
+            </a>
+            {% if current_user.is_admin %}
+            <a href="{{ url_for('admin_users') }}" class="boss-card">
+                <span class="boss-index">07</span>
+                <span class="boss-label">Admin Users</span>
+                <span class="boss-note">Handle users, roles, and account moderation.</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function runDashboardIntro() {
+    const intro = document.querySelector(".intro");
+    if (!intro) return;
+    if (intro.style.display === "none") {
+        return;
+    }
+    requestAnimationFrame(() => {
+        intro.classList.add("intro-active");
+    });
+    setTimeout(() => {
+        intro.classList.add("fade-out");
+    }, 2200);
+    setTimeout(() => {
+        intro.style.display = "none";
+    }, 3000);
+}
+
+runDashboardIntro();
+
+function openProfilePanel() {
+    const panel = document.getElementById("profilePanel");
+    if (panel) {
+        panel.classList.add("active");
+    }
+}
+
+const profileBtn = document.getElementById("profileBtn");
+if (profileBtn) {
+    profileBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        openProfilePanel();
+    });
+}
+
+function closeProfile() {
+    const panel = document.getElementById("profilePanel");
+    if (panel) {
+        panel.classList.remove("active");
+    }
+}
+
+async function syncLiveLocation() {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error("Geolocation not supported"));
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(async function(position) {
+            try {
+                const response = await fetch("/update-location", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    })
+                });
+
+                if (!response.ok) {
+                    reject(new Error("Could not update location"));
+                    return;
+                }
+
+                resolve();
+            } catch (error) {
+                reject(error);
+            }
+        }, reject);
+    });
+}
+
+const liveLocationToggle = document.getElementById("liveLocationToggle");
+const liveLocationStatus = document.getElementById("liveLocationStatus");
+
+if (liveLocationToggle) {
+    liveLocationToggle.addEventListener("change", async function() {
+        const enabled = this.checked;
+
+        try {
+            const toggleResponse = await fetch("/toggle-live-location", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ enabled })
+            });
+
+            if (!toggleResponse.ok) {
+                throw new Error("Toggle failed");
+            }
+
+            if (enabled) {
+                liveLocationStatus.textContent = "On";
+                liveLocationStatus.classList.remove("pending", "error");
+                try {
+                    await syncLiveLocation();
+                } catch (error) {
+                    liveLocationStatus.textContent = "Waiting For Permission";
+                    liveLocationStatus.classList.remove("error");
+                    liveLocationStatus.classList.add("pending");
+                }
+            } else {
+                liveLocationStatus.textContent = "Off";
+                liveLocationStatus.classList.remove("pending", "error");
+            }
+        } catch (error) {
+            this.checked = !enabled;
+            liveLocationStatus.textContent = this.checked ? "On" : "Off";
+            liveLocationStatus.classList.remove("pending");
+            liveLocationStatus.classList.add("error");
+        }
+    });
+}
+
+document.querySelectorAll(".boss-card").forEach(link => {
+    if (link.id === "profileBtn") return;
+
+    link.addEventListener("click", function(e) {
+        e.preventDefault();
+        const target = this.href;
+        const shouldSyncLocation = liveLocationToggle && liveLocationToggle.checked && (
+            target.includes("/generate-outfit") ||
+            target.includes("/custom-outfit") ||
+            target.includes("/weekly-rotation")
+        );
+
+        document.body.style.transition = "opacity 0.45s ease, transform 0.45s ease";
+        document.body.style.opacity = "0";
+        document.body.style.transform = "scale(1.01)";
+
+        const finishNavigation = () => {
+            if (window.ajaxNavigate) {
+                window.ajaxNavigate(target);
+            } else {
+                window.location.href = target;
+            }
+        };
+
+        setTimeout(async () => {
+            if (shouldSyncLocation) {
+                try {
+                    await syncLiveLocation();
+                } catch (error) {
+                    console.error(error);
+                }
+            }
+            finishNavigation();
+        }, 420);
+    });
+});
+</script>
+
+</body>
+</html>

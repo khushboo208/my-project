@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | AI Wardrobe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260330b') }}" data-ajax-style>
+    <script src="{{ url_for('static', filename='js/app_nav.js') }}" defer></script>
+</head>
+<body class="auth-body">
+
+<div class="auth-bg-glow"></div>
+<div class="tokyo-lines"></div>
+<div class="tokyo-sigil tokyo-sigil-left">TOKYO</div>
+<div class="tokyo-sigil tokyo-sigil-right">KINO</div>
+
+<div class="auth-container">
+    <p class="section-kicker">Sign In</p>
+    <h1 class="auth-title">Access System</h1>
+    <p class="auth-copy">Enter your wardrobe system and continue building weather-aware looks with a cleaner point of view.</p>
+
+    <form method="POST" class="auth-form">
+        <div class="input-group">
+            <input type="text" name="name" required>
+            <label>Name</label>
+        </div>
+
+        <div class="input-group">
+            <input type="password" name="password" required>
+            <label>Password</label>
+        </div>
+
+        <button type="submit" class="auth-btn">Login</button>
+    </form>
+
+    <div class="auth-divider"><span>OR</span></div>
+
+    <a href="{{ url_for('google.login') }}" class="google-btn">Continue with Google</a>
+
+    <p class="auth-switch">
+        Don't have an account?
+        <a href="{{ url_for('auth.signup') }}">Sign up</a>
+    </p>
+
+    <div class="auth-footnote">Built for styling with memory, structure, and better taste than a random closet dump.</div>
+</div>
+
+</body>
+</html>

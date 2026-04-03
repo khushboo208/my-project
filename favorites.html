@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Favorites</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260320p') }}" data-ajax-style>
+    <script src="{{ url_for('static', filename='js/app_nav.js') }}" defer></script>
+</head>
+<body class="boss-body">
+<div class="tokyo-lines"></div>
+<div class="tokyo-sigil tokyo-sigil-left">SAVE</div>
+<div class="tokyo-sigil tokyo-sigil-right">LOOKS</div>
+
+<div class="boss-scene">
+    <div class="animated-bg"></div>
+    <div class="noise-layer"></div>
+    <div class="particles"></div>
+
+    <p class="section-kicker scene-kicker">Saved Output</p>
+    <h1 class="boss-title">Favorites</h1>
+    <p class="scene-copy">A cold storage wall for combinations worth keeping, repeating, or evolving into better versions later.</p>
+
+    {% if saved_outfits %}
+    <div class="favorites-grid">
+        {% for saved in saved_outfits %}
+            {% set outfit = saved.outfit_data %}
+            <div class="favorite-card" id="outfit-{{ saved.id }}">
+                <div class="favorite-items">
+                    {% for key, item in outfit.items() %}
+                    <div class="fav-item">
+                        <img src="{{ url_for('static', filename=item['image_path']) }}">
+                        <p>{{ key.capitalize() }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% if saved.scheduled_date or saved.note %}
+                <div class="saved-meta">
+                    {% if saved.scheduled_date %}
+                    <p>Date: {{ saved.scheduled_date }}</p>
+                    {% endif %}
+                    {% if saved.note %}
+                    <p>Note: {{ saved.note }}</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <button class="delete-btn" data-id="{{ saved.id }}">Delete</button>
+            </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">No saved outfits yet. When a generated look feels right, archive it here and build a sharper rotation.</div>
+    {% endif %}
+
+    <div class="bottom-nav">
+        <button class="dashboard-btn" onclick="goToDashboard()">Back to Dashboard</button>
+    </div>
+</div>
+
+<script>
+function goToDashboard() {
+    if (window.ajaxNavigate) {
+        window.ajaxNavigate("/dashboard");
+    } else {
+        window.location.href = "/dashboard";
+    }
+}
+
+document.addEventListener("click", function(e) {
+    if (e.target.classList.contains("delete-btn")) {
+        const outfitId = e.target.dataset.id;
+
+        fetch(`/delete-outfit/${outfitId}`, {
+            method: "POST"
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const card = document.getElementById("outfit-" + outfitId);
+                if (card) {
+                    card.remove();
+                }
+            } else {
+                alert("Delete failed.");
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+        });
+    }
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Clothing Item | AI Wardrobe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260330d') }}" data-ajax-style>
+    <script src="{{ url_for('static', filename='js/app_nav.js') }}" defer></script>
+</head>
+<body class="add-body">
+
+<div class="add-bg-glow"></div>
+<div class="tokyo-lines"></div>
+<div class="tokyo-sigil tokyo-sigil-left">SCAN</div>
+<div class="tokyo-sigil tokyo-sigil-right">ARCHIVE</div>
+
+<div class="floating-data">
+    <span>AI MODE ACTIVE</span>
+    <span>STYLE ENGINE V3</span>
+    <span>VISION ANALYZER LIVE</span>
+    <span>WARDROBE SYNC READY</span>
+</div>
+
+<div class="add-container">
+    <div class="add-header">
+        <div>
+            <p class="section-kicker">Vision Intake</p>
+            <h1 class="add-title">Add Clothing Item</h1>
+            <p class="add-copy">Feed the system a clean image and let the analyzer turn fabric into metadata, tags, and a usable description.</p>
+        </div>
+        <a href="{{ url_for('dashboard') }}" class="secondary-btn add-dashboard-btn">Back to Dashboard</a>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" class="upload-form">
+        <label class="custom-file-upload" id="uploadBox">
+            <input type="file" name="image" id="fileInput" required>
+            <span id="uploadText">+ Select Image</span>
+        </label>
+
+        <div class="mini-preview" id="miniPreview"></div>
+
+        <button type="button" class="remove-btn" id="removeImageBtn" style="display:none;">Remove Image</button>
+
+        <button type="submit" name="predict" class="primary-btn">Analyze Item</button>
+    </form>
+
+    {% if image_filename %}
+    <div class="preview-section">
+        {% if analysis_error %}
+        <div style="margin-bottom:16px; padding:12px 16px; border-radius:12px; background:rgba(255,107,107,0.12); color:#ffd6d6; border:1px solid rgba(255,107,107,0.35);">
+            AI analysis failed: {{ analysis_error }}
+        </div>
+        {% endif %}
+
+        <div class="image-preview">
+            <img src="{{ url_for('static', filename='uploads/' + image_filename) }}">
+        </div>
+
+        <div class="analysis-banner">
+            <span>Prediction Ready</span>
+            <span>Review the fields below before sending this piece into the archive.</span>
+        </div>
+
+        <button type="button" class="remove-btn" id="removePredictedImageBtn">Remove Image</button>
+
+        <form method="POST" action="/save-item" class="details-form">
+            <input type="hidden" name="image_path" value="uploads/{{ image_filename }}">
+            <input type="hidden" name="main_category" value="{{ main_category }}">
+            <input type="hidden" name="sub_category" value="{{ sub_category }}">
+
+            <div class="input-group">
+                <input type="text" name="article_type" value="{{ predicted_article }}" required>
+                <label>Article Type</label>
+            </div>
+
+            <div class="input-group">
+                <input type="text" name="color" value="{{ predicted_color }}" required>
+                <label>Color</label>
+            </div>
+
+            <div class="input-group">
+                <input type="text" name="fit" value="{{ predicted_fit }}" required>
+                <label>Fit</label>
+            </div>
+
+            <div class="input-group">
+                <input type="text" name="material" value="{{ predicted_material }}" required>
+                <label>Material</label>
+            </div>
+
+            <div class="input-group">
+                <select name="gender">
+                    <option value="">Gender (Optional)</option>
+                    <option value="unisex" {% if (predicted_gender or "") == "unisex" %}selected{% endif %}>Unisex</option>
+                    <option value="male" {% if (predicted_gender or "") == "male" %}selected{% endif %}>Male</option>
+                    <option value="female" {% if (predicted_gender or "") == "female" %}selected{% endif %}>Female</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <input type="text" name="season_tags" value="{{ predicted_seasons }}" required>
+                <label>Seasons</label>
+            </div>
+
+            <div class="input-group">
+                <input type="text" name="occasion_tags" value="{{ predicted_occasions }}" required>
+                <label>Occasions</label>
+            </div>
+
+            <div class="input-group">
+                <input type="text" name="style_tags" value="{{ predicted_styles }}" required>
+                <label>Style Tags</label>
+            </div>
+
+            <div class="input-group">
+                <textarea name="description" rows="4" required>{{ predicted_description }}</textarea>
+                <label>Description</label>
+            </div>
+
+            <input type="hidden" name="extra_details" value='{{ predicted_extra_details|tojson|safe if predicted_extra_details is mapping else predicted_extra_details }}'>
+
+            <button type="submit" class="save-btn">Save to Wardrobe</button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+const invalidItemError = {{ invalid_item_error|tojson if invalid_item_error else 'null' }};
+const fileInput = document.getElementById("fileInput");
+const uploadText = document.getElementById("uploadText");
+const uploadBox = document.getElementById("uploadBox");
+const miniPreview = document.getElementById("miniPreview");
+const removeBtn = document.getElementById("removeImageBtn");
+const removePredictedBtn = document.getElementById("removePredictedImageBtn");
+const predictBtn = document.querySelector(".primary-btn");
+
+function handleFile(file) {
+    if (!file) return;
+
+    uploadText.innerText = "Image Selected";
+    uploadBox.classList.add("active");
+    removeBtn.style.display = "inline-flex";
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        miniPreview.style.display = "flex";
+        miniPreview.innerHTML = `
+            <div style="position:relative; display:inline-block;">
+                <img src="${e.target.result}" style="max-width:150px; border-radius:15px;">
+                <div class="scan-overlay"></div>
+            </div>
+        `;
+    };
+    reader.readAsDataURL(file);
+}
+
+if (fileInput) {
+    fileInput.addEventListener("change", function() {
+        if (this.files && this.files[0]) {
+            handleFile(this.files[0]);
+        }
+    });
+}
+
+uploadBox.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    uploadBox.classList.add("dragover");
+});
+
+uploadBox.addEventListener("dragleave", () => {
+    uploadBox.classList.remove("dragover");
+});
+
+uploadBox.addEventListener("drop", (e) => {
+    e.preventDefault();
+    uploadBox.classList.remove("dragover");
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        fileInput.files = files;
+        handleFile(files[0]);
+    }
+});
+
+removeBtn.addEventListener("click", () => {
+    fileInput.value = "";
+    miniPreview.innerHTML = "";
+    miniPreview.style.display = "none";
+    removeBtn.style.display = "none";
+    uploadText.innerText = "+ Select Image";
+    uploadBox.classList.remove("active");
+});
+
+if (removePredictedBtn) {
+    removePredictedBtn.addEventListener("click", () => {
+        if (window.ajaxNavigate) {
+            window.ajaxNavigate("{{ url_for('upload_file') }}");
+        } else {
+            window.location.href = "{{ url_for('upload_file') }}";
+        }
+    });
+}
+
+if (predictBtn) {
+    predictBtn.addEventListener("click", function() {
+        if (!fileInput.files.length) return;
+        setTimeout(() => {
+            this.innerText = "Analyzing...";
+        }, 50);
+    });
+}
+
+if (invalidItemError) {
+    alert(invalidItemError);
+    if (window.ajaxNavigate) {
+        window.ajaxNavigate("{{ url_for('upload_file') }}");
+    } else {
+        window.location.replace("{{ url_for('upload_file') }}");
+    }
+}
+</script>
+
+</body>
+</html>

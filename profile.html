@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile | AI Wardrobe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260320p') }}" data-ajax-style>
+    <script src="{{ url_for('static', filename='js/app_nav.js') }}" defer></script>
+</head>
+<body class="wardrobe-body">
+<div class="tokyo-lines"></div>
+<div class="tokyo-sigil tokyo-sigil-left">USER</div>
+<div class="tokyo-sigil tokyo-sigil-right">STATE</div>
+
+<div class="wardrobe-container">
+    <div class="top-bar">
+        <div>
+            <p class="section-kicker">Identity</p>
+            <h1 class="wardrobe-title">Profile</h1>
+            <p class="wardrobe-lede">This is the control record for the user running the system, including weather-aware styling behavior.</p>
+        </div>
+        <div class="top-buttons">
+            <a href="{{ url_for('dashboard') }}" class="secondary-btn">Back to Dashboard</a>
+        </div>
+    </div>
+
+    <div class="favorites-grid">
+        <div class="favorite-card">
+            <span class="label">Name</span>
+            <div class="value">{{ user.name or "Not set" }}</div>
+        </div>
+        <div class="favorite-card">
+            <span class="label">Email</span>
+            <div class="value">{{ user.email or "Not set" }}</div>
+        </div>
+        <div class="favorite-card">
+            <span class="label">Items in Wardrobe</span>
+            <div class="count-number">{{ item_count }}</div>
+        </div>
+        <div class="favorite-card">
+            <div class="profile-setting" style="padding:0; background:none; border:none;">
+                <div class="setting-copy">
+                    <div class="setting-title">Live Location</div>
+                    <div class="setting-hint">Weather-aware styling for generated looks, custom outfit chat, and weekly rotation.</div>
+                    <span class="toggle-status" id="profileLiveLocationStatus">{{ "On" if live_location_enabled else "Off" }}</span>
+                </div>
+
+                <label class="toggle-switch">
+                    <input type="checkbox" id="profileLiveLocationToggle" {% if live_location_enabled %}checked{% endif %}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function syncProfileLocation() {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error("Geolocation not supported"));
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(async function(position) {
+            try {
+                const response = await fetch("/update-location", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    })
+                });
+
+                if (!response.ok) {
+                    reject(new Error("Could not update location"));
+                    return;
+                }
+
+                resolve();
+            } catch (error) {
+                reject(error);
+            }
+        }, reject);
+    });
+}
+
+const profileLiveLocationToggle = document.getElementById("profileLiveLocationToggle");
+const profileLiveLocationStatus = document.getElementById("profileLiveLocationStatus");
+
+if (profileLiveLocationToggle) {
+    profileLiveLocationToggle.addEventListener("change", async function() {
+        const enabled = this.checked;
+
+        try {
+            const toggleResponse = await fetch("/toggle-live-location", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ enabled })
+            });
+
+            if (!toggleResponse.ok) {
+                throw new Error("Toggle failed");
+            }
+
+            if (enabled) {
+                profileLiveLocationStatus.textContent = "On";
+                profileLiveLocationStatus.classList.remove("pending", "error");
+                try {
+                    await syncProfileLocation();
+                } catch (error) {
+                    profileLiveLocationStatus.textContent = "Waiting For Permission";
+                    profileLiveLocationStatus.classList.remove("error");
+                    profileLiveLocationStatus.classList.add("pending");
+                }
+            } else {
+                profileLiveLocationStatus.textContent = "Off";
+                profileLiveLocationStatus.classList.remove("pending", "error");
+            }
+        } catch (error) {
+            this.checked = !enabled;
+            profileLiveLocationStatus.textContent = this.checked ? "On" : "Off";
+            profileLiveLocationStatus.classList.remove("pending");
+            profileLiveLocationStatus.classList.add("error");
+        }
+    });
+}
+</script>
+
+</body>
+</html>
